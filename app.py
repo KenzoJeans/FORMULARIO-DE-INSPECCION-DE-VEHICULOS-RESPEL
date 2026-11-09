@@ -98,9 +98,10 @@ else:
         col_f1, col_f2 = st.columns(2)
         
         with col_f1:
-            st.text("Firma Persona que Inspecciona")
-            nombre_inspector = st.text_input("Nombre y Cédula del Inspector")
-            # Canvas para la firma del inspector
+            st.markdown("##### Persona que Inspecciona")
+            nombre_inspector = st.text_input("Nombre Completo Inspector", key="insp_nombre")
+            cedula_inspector = st.text_input("Cédula / Documento Inspector", key="insp_cedula")
+            st.caption("Traza tu firma a continuación:")
             canvas_inspector = st_canvas(
                 fill_color="rgba(255, 165, 0, 0.3)",
                 stroke_width=2,
@@ -113,8 +114,10 @@ else:
             )
             
         with col_f2:
-            st.text("Firma Conductor")
-            # Canvas para la firma del conductor
+            st.markdown("##### Conductor del Vehículo")
+            nombre_conductor_firma = st.text_input("Nombre Completo Conductor", key="cond_nombre")
+            cedula_conductor_firma = st.text_input("Cédula / Documento Conductor", key="cond_cedula")
+            st.caption("Traza tu firma a continuación:")
             canvas_conductor = st_canvas(
                 fill_color="rgba(255, 165, 0, 0.3)",
                 stroke_width=2,
@@ -130,10 +133,10 @@ else:
 
     # 4. Proceso de Guardado en Supabase
     if btn_guardar:
-        if not placa or not nombre_conductor or not nombre_inspector:
-            st.error("Por favor completa los datos obligatorios (Placa, Conductor y Nombre del Inspector).")
+        if not placa or not nombre_inspector or not nombre_conductor_firma:
+            st.error("Por favor completa los datos obligatorios (Placa, Nombre de Inspector y Conductor).")
         else:
-            # Procesar firma del inspector a base64 si existe trazo
+            # Procesar firma inspector
             firma_inspector_b64 = ""
             if canvas_inspector.image_data is not None:
                 img_insp = Image.fromarray(canvas_inspector.image_data.astype('uint8'), 'RGBA')
@@ -141,7 +144,7 @@ else:
                 img_insp.save(buffered_insp, format="PNG")
                 firma_inspector_b64 = base64.b64encode(buffered_insp.getvalue()).decode()
 
-            # Procesar firma del conductor a base64 si existe trazo
+            # Procesar firma conductor
             firma_conductor_b64 = ""
             if canvas_conductor.image_data is not None:
                 img_cond = Image.fromarray(canvas_conductor.image_data.astype('uint8'), 'RGBA')
@@ -149,24 +152,23 @@ else:
                 img_cond.save(buffered_cond, format="PNG")
                 firma_conductor_b64 = base64.b64encode(buffered_cond.getvalue()).decode()
 
-            # A. Guardar Cabecera
+            # Guardar en Supabase
             datos_cabecera = {
                 "proveedor": proveedor,
                 "placa": placa.upper(),
                 "tipo_vehiculo": tipo_vehiculo,
-                "nombre_conductor": nombre_conductor,
-                "cedula_conductor": cedula,
+                "nombre_conductor": nombre_conductor_firma,
+                "cedula_conductor": cedula_conductor_firma,
                 "arl_conductor": arl,
                 "eps_conductor": eps,
                 "certificado_transporte": certificado,
                 "observaciones_certificado": obs_certificado,
-                "firma_inspector": f"{nombre_inspector} | B64_IMG", # Guardamos referencia o la imagen completa
+                "firma_inspector": f"{nombre_inspector} (CC: {cedula_inspector}) | {firma_inspector_b64}",
                 "firma_conductor": firma_conductor_b64
             }
             res_inspeccion = supabase.table("inspecciones_vehiculos").insert(datos_cabecera).execute()
             inspeccion_id = res_inspeccion.data[0]['id']
             
-            # B. Guardar Checklist
             registros_checklist = []
             for item_id, resp in respuestas_checklist.items():
                 registros_checklist.append({
@@ -179,4 +181,4 @@ else:
             
             supabase.table("detalle_checklist").insert(registros_checklist).execute()
             
-            st.success(f"✅ ¡Inspección #{inspeccion_id} con firmas digitales guardada exitosamente en Supabase!")
+            st.success(f"✅ Inspección #{inspeccion_id} guardada exitosamente.")
