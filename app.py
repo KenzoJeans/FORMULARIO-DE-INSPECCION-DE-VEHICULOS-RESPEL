@@ -1,5 +1,5 @@
 import streamlit as st
-from st_supabase_connection import SupabaseConnection
+from supabase import create_client, Client
 
 # Configuración visual de la página
 st.set_page_config(page_title="SGA - Inspección RESPEL", layout="wide")
@@ -7,14 +7,20 @@ st.set_page_config(page_title="SGA - Inspección RESPEL", layout="wide")
 st.title("🚛 Inspección de Vehículos - RESPEL")
 st.caption("Sistema de Gestión Ambiental | SGA-HO-CD-FO-01")
 
-# 1. Conexión a Supabase (usa las llaves de tu proyecto en .streamlit/secrets.toml)
-st_supabase = st.connection("supabase", type=SupabaseConnection)
+# 1. Conexión a Supabase usando los secretos
+@st.cache_resource
+def init_connection():
+    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
+    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase: Client = init_connection()
 
 # 2. Cargar el catálogo de preguntas guardado en Supabase
 @st.cache_data(ttl=600)
 def cargar_catalogo():
-    res = st_supabase.query("*", table="catalog_items_chequeo").execute()
-    return res.data
+    response = supabase.table("catalog_items_chequeo").select("*").execute()
+    return response.data
 
 items_catalogo = cargar_catalogo()
 
@@ -40,7 +46,6 @@ with st.form("form_inspeccion", clear_on_submit=True):
     st.markdown("---")
     st.subheader("2. Residuos Peligrosos a Transportar")
     
-    # Registro de residuos básicos
     col_r1, col_r2 = st.columns(2)
     with col_r1:
         peso_empaques = st.number_input("Empaques Contaminados (kg)", min_value=0.0, step=0.1)
@@ -53,11 +58,9 @@ with st.form("form_inspeccion", clear_on_submit=True):
     st.markdown("---")
     st.subheader("3. Lista de Chequeo (Verificación)")
     
-    # Agrupar preguntas por categoría visualmente
     respuestas_checklist = {}
     
     if items_catalogo:
-        # Agrupamos por categoría
         categorias = list(set([item['categoria'] for item in items_catalogo]))
         
         for cat in categorias:
@@ -107,10 +110,12 @@ if btn_guardar:
             "firma_inspector": firma_insp,
             "firma_conductor": firma_cond
         }
-        res_inspeccion = st_supabase.table("inspecciones_vehiculos").insert(datos_cabecera).execute()
+        res_inspeccion = supabase.table("inspecciones_vehiculos").insert(datos_cabecera).execute()
+        
+        # Obtenemos el ID de la inspección recién creada
         inspeccion_id = res_inspeccion.data[0]['id']
         
-        # B. Guardar Checklist en detalle_checklist
+        # B. Guardar Checklist
         registros_checklist = []
         for item_id, resp in respuestas_checklist.items():
             registros_checklist.append({
@@ -121,6 +126,6 @@ if btn_guardar:
                 "observaciones": resp["observaciones"]
             })
         
-        st_supabase.table("detalle_checklist").insert(registros_checklist).execute()
+        supabase.table("detalle_checklist").insert(registros_checklist).execute()
         
         st.success(f"✅ ¡Inspección #{inspeccion_id} guardada exitosamente en Supabase!")
