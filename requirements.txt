@@ -1,3 +1,6 @@
 streamlit
 supabase
 streamlit-drawable-canvas
+pillow
+numpy
+streamlit-drawable-canvas[image]
