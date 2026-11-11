@@ -235,6 +235,7 @@ with st.form(f"form_inspeccion_{n}"):
             height=150,
             width=350,
             drawing_mode="freedraw",
+            return_image_data=True,
             key=k("canvas_inspector"),
         )
     with f2:
@@ -249,6 +250,7 @@ with st.form(f"form_inspeccion_{n}"):
             height=150,
             width=350,
             drawing_mode="freedraw",
+            return_image_data=True,
             key=k("canvas_conductor"),
         )
 
